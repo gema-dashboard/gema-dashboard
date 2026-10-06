@@ -581,9 +581,6 @@ with tab_athletes:
 
     with col_info:
         st.markdown(f"#### {selected}")
-        st.metric("Total Articles",   len(df_ath))
-        st.metric("Peak Year",        top_year)
-        st.metric("Most Coverage In", top_src)
         if wd:
             st.metric("Sport",       wd.get("sport")       or "Unknown")
             st.metric("Nationality", wd.get("nationality") or "Unknown")
@@ -598,6 +595,10 @@ with tab_athletes:
             st.caption("Wikidata information not available.")
 
     with col_chart:
+        m1, m2, m3 = st.columns(3)
+        m1.metric("Total Articles",   len(df_ath))
+        m2.metric("Peak Year",        top_year)
+        m3.metric("Most Coverage In", top_src)
         df_yr = yr_counts.sort_index().reset_index()
         df_yr.columns = ["Year", "Articles"]
         fig_ath = px.bar(
