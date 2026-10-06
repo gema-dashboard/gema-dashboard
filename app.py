@@ -89,7 +89,7 @@ def event_label(year: int) -> str:
 
 with st.sidebar:
     st.title("🔭 GEMA Explorer")
-    st.caption("28 years of gender in Portuguese sports media.")
+    st.caption("28 years of women's representation in Portuguese sports media.")
     st.divider()
 
     year_range = st.slider("Year range", 1998, 2026, (1998, 2026))
@@ -186,7 +186,7 @@ def add_event_lines(fig):
 # Header
 # ---------------------------------------------------------------------------
 
-st.title("🔭 GEMA — Gender in Portuguese Sports Media")
+st.title("🔭 GEMA — Women's Representation in Portuguese Sports Media")
 st.caption("Explore 28 years of data freely. No fixed questions — build your own view.")
 
 vis_fem = female_pct(df_vis, "gender")
