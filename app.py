@@ -123,7 +123,7 @@ with st.sidebar:
     )
 
     st.divider()
-    st.caption("GEMA · INESC TEC / FADEUP · 2025")
+    st.caption("GEMA · 2025")
 
 # ---------------------------------------------------------------------------
 # Data loading
