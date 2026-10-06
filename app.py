@@ -511,6 +511,7 @@ with tab_sources:
 
 with tab_athletes:
     st.subheader("🏃 Athlete Explorer")
+    st.info("ℹ️ The sidebar filters (year range, outlets, event markers) do not apply to this tab.", icon=None)
     st.caption("Select a female protagonist to explore her media coverage and Wikidata profile.")
 
     if df_ent_dist.empty:
