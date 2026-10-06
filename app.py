@@ -124,12 +124,6 @@ with st.sidebar:
         value=True,
         help="Exclude articles where only the headline was available.",
     )
-    prominent_only = st.checkbox(
-        "Prominent faces only (covers)",
-        value=False,
-        help="Keep only faces occupying ≥ 0.17% of the cover area.",
-    )
-
     st.divider()
     st.caption("GEMA · 2025")
 
@@ -145,7 +139,7 @@ def _safe(fn, *args, **kwargs):
         return pd.DataFrame()
 
 with st.spinner("Loading data…"):
-    df_vis_raw    = _safe(db.fetch_visual_yearly, filter_prominent=prominent_only)
+    df_vis_raw    = _safe(db.fetch_visual_yearly, filter_prominent=False)
     df_txt_raw    = _safe(db.fetch_text_yearly, filter_body=body_only)
     df_ent_dist   = _safe(db.fetch_entity_distribution, "feminine")
     df_ent_dist_m = _safe(db.fetch_entity_distribution, "masculine")
