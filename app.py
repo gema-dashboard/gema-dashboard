@@ -12,6 +12,9 @@ import plotly.express as px
 import plotly.graph_objects as go
 import pandas as pd
 import yake
+import io
+from wordcloud import WordCloud
+import matplotlib.pyplot as plt
 
 import db_static as db
 
@@ -506,14 +509,13 @@ with tab_sources:
 with tab_athletes:
     st.subheader("🏃 Athlete Explorer")
     st.info("ℹ️ The sidebar filters (year range, outlets, event markers) do not apply to this tab.", icon=None)
-    st.caption("Select a female protagonist to explore her media coverage and Wikidata profile.")
 
     if df_ent_dist.empty:
         st.info("No athlete data available.")
         st.stop()
 
-    # Top protagonists bar chart
-    col_rank, col_detail = st.columns([1, 2])
+    # ── Selector + top ranking ──────────────────────────────────────────────
+    col_rank, col_sel = st.columns([1, 1])
 
     with col_rank:
         st.markdown("**Top female protagonists (all sources)**")
@@ -530,108 +532,163 @@ with tab_athletes:
                               coloraxis_showscale=False)
         st.plotly_chart(fig_top, use_container_width=True)
 
-    with col_detail:
+    with col_sel:
         athlete_options = df_ent_dist["entity"].tolist()
         selected = st.selectbox("Select an athlete to explore", athlete_options)
 
-        if selected:
-            with st.spinner(f"Loading data for {selected}…"):
-                df_ath = _safe(db.fetch_athlete_articles, selected, "feminine")
+    if not selected:
+        st.stop()
 
-            if df_ath.empty:
-                st.info("No articles found.")
-            else:
-                yr_counts = df_ath["year"].value_counts()
-                top_year  = int(yr_counts.idxmax()) if not yr_counts.empty else "N/A"
-                top_src   = df_ath["source"].value_counts().idxmax() if not df_ath["source"].empty else "N/A"
+    with st.spinner(f"Loading data for {selected}…"):
+        df_ath = _safe(db.fetch_athlete_articles, selected, "feminine")
 
-                m1, m2, m3 = st.columns(3)
-                m1.metric("Total Articles",       len(df_ath))
-                m2.metric("Peak Year",            top_year)
-                m3.metric("Most Coverage In",     top_src)
+    if df_ath.empty:
+        st.info("No articles found.")
+        st.stop()
 
-                # Year trend
-                df_yr = yr_counts.sort_index().reset_index()
-                df_yr.columns = ["Year", "Articles"]
-                fig_ath = px.bar(
-                    df_yr, x="Year", y="Articles",
-                    title=f"<b>{selected} — Articles per Year</b>",
-                    color_discrete_sequence=["#e377c2"],
-                    height=250,
-                )
-                fig_ath.update_layout(template="plotly_white",
-                                      xaxis=dict(tickmode="linear", dtick=1))
-                st.plotly_chart(fig_ath, use_container_width=True)
+    yr_counts = df_ath["year"].value_counts()
+    top_year  = int(yr_counts.idxmax()) if not yr_counts.empty else "N/A"
+    top_src   = df_ath["source"].value_counts().idxmax() if not df_ath["source"].empty else "N/A"
 
-                # Coverage by source
-                src_counts = df_ath["source"].value_counts().reset_index()
-                src_counts.columns = ["Source", "Articles"]
-                fig_src = px.pie(
-                    src_counts, names="Source", values="Articles",
-                    color="Source", color_discrete_map=SOURCE_COLORS,
-                    title="Coverage by outlet",
-                    height=230,
-                )
-                fig_src.update_traces(textposition="inside", textinfo="percent+label")
-                fig_src.update_layout(showlegend=False, template="plotly_white")
-                st.plotly_chart(fig_src, use_container_width=True)
-
-                # Keywords from article content
-                all_text = " ".join(df_ath["content"].dropna().tolist())
-                name_tokens = [t.lower() for t in selected.split() if len(t) > 2]
-                if len(all_text) > 100:
-                    kw_ext = yake.KeywordExtractor(lan="pt", n=2, dedupLim=0.8, top=12)
-                    raw_kws = kw_ext.extract_keywords(all_text)
-                    kws = [kw for kw, _ in raw_kws
-                           if not any(tok in kw.lower() for tok in name_tokens)]
-                    if kws:
-                        st.markdown(f"**Keywords in articles about {selected}:**")
-                        st.markdown("  ·  ".join(f"`{k}`" for k in kws[:10]))
-
-    # Wikidata profile
     st.divider()
-    st.markdown("#### 🌐 Wikidata Profile")
-    wd_athlete = selected
-    if wd_athlete:
+
+    # ── Row 1: Wikidata profile | Stats + articles per year ─────────────────
+    col_wiki, col_main = st.columns([1, 2])
+
+    with col_wiki:
+        st.markdown("#### 🌐 Wikidata Profile")
         try:
             sys.path.insert(0, os.path.abspath(
                 os.path.join(os.path.dirname(__file__), "..", "src", "utils")
             ))
             from wikidata_api import consultar_wikidata_info_completa
             with st.spinner("Fetching Wikidata…"):
-                wd = consultar_wikidata_info_completa(wd_athlete)
+                wd = consultar_wikidata_info_completa(selected)
 
-            img_col, info_col = st.columns([1, 3])
-            with img_col:
-                img_url = wd.get("image_url")
-                if img_url:
-                    try:
-                        import requests as _req
-                        r = _req.get(img_url, timeout=8, allow_redirects=True)
-                        if r.status_code == 200 and "image" in r.headers.get("Content-Type", ""):
-                            st.image(r.content, caption=wd_athlete, use_container_width=True)
-                        else:
-                            st.image(img_url, caption=wd_athlete, use_container_width=True)
-                    except Exception:
-                        st.image(img_url, caption=wd_athlete, use_container_width=True)
+            img_url = wd.get("image_url")
+            if img_url:
+                try:
+                    import requests as _req
+                    r = _req.get(img_url, timeout=8, allow_redirects=True)
+                    if r.status_code == 200 and "image" in r.headers.get("Content-Type", ""):
+                        st.image(r.content, caption=selected, use_container_width=True)
+                    else:
+                        st.image(img_url, caption=selected, use_container_width=True)
+                except Exception:
+                    st.image(img_url, caption=selected, use_container_width=True)
 
-            with info_col:
-                wc = st.columns(4)
-                wc[0].metric("Gender",      wd.get("gender")      or "Unknown")
-                wc[1].metric("Sport",       wd.get("sport")       or "Unknown")
-                wc[2].metric("Nationality", wd.get("nationality") or "Unknown")
-                wc[3].metric("Birth Year",  str(wd.get("birth_year") or "Unknown"))
+            wc_cols = st.columns(2)
+            wc_cols[0].metric("Sport",       wd.get("sport")       or "Unknown")
+            wc_cols[1].metric("Nationality", wd.get("nationality") or "Unknown")
+            wc_cols[0].metric("Birth Year",  str(wd.get("birth_year") or "Unknown"))
 
-                wd_url = wd.get("wikidata_url")
-                if wd_url:
-                    st.markdown(f"[🔗 Open Wikidata page for {wd_athlete}]({wd_url})")
-                else:
-                    search_url = f"https://www.wikidata.org/w/index.php?search={wd_athlete.replace(' ', '+')}"
-                    st.markdown(f"[🔍 Search Wikidata for {wd_athlete}]({search_url})")
+            wd_url = wd.get("wikidata_url")
+            if wd_url:
+                st.markdown(f"[🔗 Wikidata page]({wd_url})")
+            else:
+                search_url = f"https://www.wikidata.org/w/index.php?search={selected.replace(' ', '+')}"
+                st.markdown(f"[🔍 Search on Wikidata]({search_url})")
         except Exception:
-            st.info("Wikidata information not available for this athlete.")
+            st.info("Wikidata information not available.")
 
-    # Rank-frequency curve
+    with col_main:
+        m1, m2, m3 = st.columns(3)
+        m1.metric("Total Articles",   len(df_ath))
+        m2.metric("Peak Year",        top_year)
+        m3.metric("Most Coverage In", top_src)
+
+        df_yr = yr_counts.sort_index().reset_index()
+        df_yr.columns = ["Year", "Articles"]
+        fig_ath = px.bar(
+            df_yr, x="Year", y="Articles",
+            title=f"<b>{selected} — Articles per Year</b>",
+            color_discrete_sequence=["#e377c2"],
+            height=300,
+        )
+        fig_ath.update_layout(template="plotly_white",
+                              xaxis=dict(tickmode="linear", dtick=1))
+        st.plotly_chart(fig_ath, use_container_width=True)
+
+    st.divider()
+
+    # ── Row 2: Coverage by outlet | Keyword cloud ───────────────────────────
+    col_pie, col_kw = st.columns([1, 2])
+
+    with col_pie:
+        st.markdown("**Coverage by outlet**")
+        src_counts = df_ath["source"].value_counts().reset_index()
+        src_counts.columns = ["Source", "Articles"]
+        fig_src = px.pie(
+            src_counts, names="Source", values="Articles",
+            color="Source", color_discrete_map=SOURCE_COLORS,
+            height=280,
+        )
+        fig_src.update_traces(textposition="inside", textinfo="percent+label")
+        fig_src.update_layout(showlegend=False, template="plotly_white")
+        st.plotly_chart(fig_src, use_container_width=True)
+
+    with col_kw:
+        st.markdown("**Key terms & entities**")
+        all_text = " ".join(df_ath["content"].dropna().tolist())
+        name_tokens = [t.lower() for t in selected.split() if len(t) > 2]
+
+        kws = []
+        kw_scores = {}
+        if len(all_text) > 100:
+            kw_ext = yake.KeywordExtractor(lan="pt", n=2, dedupLim=0.8, top=20)
+            raw_kws = kw_ext.extract_keywords(all_text)
+            # YAKE score: lower = more relevant; invert for word size
+            filtered = [(kw, score) for kw, score in raw_kws
+                        if not any(tok in kw.lower() for tok in name_tokens)]
+            kws = [kw for kw, _ in filtered[:15]]
+            max_score = max((s for _, s in filtered[:15]), default=1)
+            kw_scores = {kw: max_score / score for kw, score in filtered[:15]}
+
+        if kws:
+            wc_img = WordCloud(
+                width=600, height=260,
+                background_color=None, mode="RGBA",
+                colormap="RdPu",
+                prefer_horizontal=0.85,
+                max_words=15,
+            ).generate_from_frequencies(kw_scores)
+
+            buf = io.BytesIO()
+            fig_wc, ax = plt.subplots(figsize=(6, 2.6))
+            ax.imshow(wc_img, interpolation="bilinear")
+            ax.axis("off")
+            fig_wc.patch.set_alpha(0)
+            plt.tight_layout(pad=0)
+            fig_wc.savefig(buf, format="png", bbox_inches="tight",
+                           transparent=True, dpi=150)
+            plt.close(fig_wc)
+            buf.seek(0)
+            st.image(buf, use_container_width=True)
+
+            # ── Keyword outlet breakdown ─────────────────────────────────
+            st.markdown("**Explore a keyword by outlet:**")
+            sel_kw = st.selectbox("Select keyword", kws, key="kw_sel")
+            if sel_kw:
+                mask = df_ath["content"].fillna("").str.contains(
+                    sel_kw, case=False, regex=False)
+                kw_src = df_ath[mask]["source"].value_counts().reset_index()
+                kw_src.columns = ["Outlet", "Articles"]
+                if kw_src.empty:
+                    st.caption("No articles found containing this keyword.")
+                else:
+                    fig_kw = px.bar(
+                        kw_src, x="Outlet", y="Articles",
+                        color="Outlet", color_discrete_map=SOURCE_COLORS,
+                        text_auto=True, height=220,
+                    )
+                    fig_kw.update_layout(template="plotly_white",
+                                         showlegend=False,
+                                         xaxis_title="", yaxis_title="Articles")
+                    st.plotly_chart(fig_kw, use_container_width=True)
+        else:
+            st.caption("Not enough text to extract keywords.")
+
+    # ── Rank-frequency curve ────────────────────────────────────────────────
     st.divider()
     st.markdown("#### 📉 Coverage Concentration (Zipf)")
     st.caption("How spread out is coverage? A steep drop means a few athletes dominate; a gradual slope means broader coverage.")
