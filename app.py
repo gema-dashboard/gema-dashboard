@@ -92,12 +92,16 @@ with st.sidebar:
     st.caption("28 years of women's representation in Portuguese sports media.")
     st.divider()
 
-    year_range = st.slider("Year range", 1998, 2026, (1998, 2026))
+    year_range = st.slider(
+        "Year range", 1998, 2026, (1998, 2026),
+        help="Filter all charts to a specific time window.",
+    )
 
     selected_sources = st.multiselect(
         "Outlets",
         ALL_SOURCES,
         default=ALL_SOURCES,
+        help="Select which newspapers to include. Deselecting all restores the full set.",
     )
     if not selected_sources:
         selected_sources = ALL_SOURCES
@@ -105,10 +109,14 @@ with st.sidebar:
     st.divider()
 
     st.markdown("**Event markers**")
-    show_olympics  = st.checkbox("Olympic Games",     value=True)
-    show_mens_wc   = st.checkbox("Men's World Cup",   value=False)
-    show_womens_wc = st.checkbox("Women's World Cup", value=True)
-    show_euros     = st.checkbox("UEFA Euro",          value=False)
+    show_olympics  = st.checkbox("Olympic Games",     value=True,
+        help="Mark Olympic Games years on trend charts.")
+    show_mens_wc   = st.checkbox("Men's World Cup",   value=False,
+        help="Mark Men's Football World Cup years on trend charts.")
+    show_womens_wc = st.checkbox("Women's World Cup", value=True,
+        help="Mark Women's Football World Cup years on trend charts.")
+    show_euros     = st.checkbox("UEFA Euro",          value=False,
+        help="Mark UEFA European Championship years on trend charts.")
 
     st.divider()
     body_only = st.checkbox(
