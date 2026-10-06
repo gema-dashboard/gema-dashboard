@@ -187,7 +187,7 @@ def add_event_lines(fig):
 # ---------------------------------------------------------------------------
 
 st.title("🔭 GEMA — Women's Representation in Portuguese Sports Media")
-st.caption("Explore 28 years of data freely. No fixed questions — build your own view.")
+st.caption("Explore 28 years of data freely.")
 
 vis_fem = female_pct(df_vis, "gender")
 txt_fem = female_pct(df_txt, "text_gender")
